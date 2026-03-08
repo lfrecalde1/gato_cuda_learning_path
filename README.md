@@ -20,6 +20,7 @@ A progressive CUDA package to learn from zero to GATO-style optimizer implementa
 14. `lesson14_quadrotor_nonlinear_batch_cpu_vs_gpu`: batched nonlinear quadrotor simulation (`10 s`, `dt=0.01`) with CUDA + cuBLAS vs CPU.
 15. `lesson15_icp_pose_estimation_custom_solver_cpu_vs_gpu`: batched point-to-point ICP pose estimation with a custom Gauss-Newton solver (no Ceres), comparing CPU vs GPU.
 16. `lesson16_icp_pose_estimation_ceres_cpu_vs_custom_cpu_vs_gpu`: same point-cloud pose problem solved with Ceres CPU, custom CPU Gauss-Newton, and custom GPU Gauss-Newton.
+17. `lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu`: reads LiDAR + odom ground truth from rosbag2 and compares Ceres CPU, custom CPU GN, and custom GPU GN on ICP pose estimation.
 
 ## Build
 
@@ -47,6 +48,7 @@ ros2 run gato_cuda_learning_path lesson13_dense_linear_systems_ic_cpu_vs_gpu
 ros2 run gato_cuda_learning_path lesson14_quadrotor_nonlinear_batch_cpu_vs_gpu
 ros2 run gato_cuda_learning_path lesson15_icp_pose_estimation_custom_solver_cpu_vs_gpu
 ros2 run gato_cuda_learning_path lesson16_icp_pose_estimation_ceres_cpu_vs_custom_cpu_vs_gpu
+ros2 run gato_cuda_learning_path lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu -- /path/to/bag_dir
 ```
 
 ## How this maps to GATO concepts

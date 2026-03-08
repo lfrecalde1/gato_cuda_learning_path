@@ -19,6 +19,10 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(CUDAToolkit REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 
 # Ubuntu libceres-dev installs config files in /usr/lib/cmake/Ceres.
 if(NOT Ceres_DIR AND EXISTS "/usr/lib/cmake/Ceres/CeresConfig.cmake")
@@ -43,6 +47,7 @@ set(LESSON_TARGETS
   lesson14_quadrotor_nonlinear_batch_cpu_vs_gpu
   lesson15_icp_pose_estimation_custom_solver_cpu_vs_gpu
   lesson16_icp_pose_estimation_ceres_cpu_vs_custom_cpu_vs_gpu
+  lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu
 )
 
 foreach(target IN LISTS LESSON_TARGETS)
@@ -70,6 +75,21 @@ else()
   target_compile_definitions(lesson16_icp_pose_estimation_ceres_cpu_vs_custom_cpu_vs_gpu PRIVATE GCLP_HAVE_CERES=0)
   message(WARNING "Ceres not found: lesson16 will run custom CPU/GPU methods and report Ceres as unavailable.")
 endif()
+
+if(Ceres_FOUND)
+  target_link_libraries(lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu Ceres::ceres)
+  target_compile_definitions(lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu PRIVATE GCLP_HAVE_CERES=1)
+else()
+  target_compile_definitions(lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu PRIVATE GCLP_HAVE_CERES=0)
+  message(WARNING "Ceres not found: lesson17 will run custom CPU/GPU methods and report Ceres as unavailable.")
+endif()
+
+ament_target_dependencies(lesson17_rosbag_lidar_icp_ceres_cpu_vs_custom_cpu_vs_gpu
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  rosbag2_cpp
+)
 
 install(TARGETS ${LESSON_TARGETS}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
