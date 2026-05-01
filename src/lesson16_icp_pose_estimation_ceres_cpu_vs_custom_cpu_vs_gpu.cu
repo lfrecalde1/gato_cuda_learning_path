@@ -15,25 +15,21 @@
 
 namespace gclp = gato_cuda_learning_path;
 
-namespace
-{
+namespace {
 
 constexpr int kRotSize = 9;
 
-struct Vec3
-{
+struct Vec3 {
   float x;
   float y;
   float z;
 };
 
-__host__ __device__ inline std::size_t idx_pt(int b, int p, int c, int points)
-{
+__host__ __device__ inline std::size_t idx_pt(int b, int p, int c, int points) {
   return static_cast<std::size_t>((b * points + p) * 3 + c);
 }
 
-__host__ __device__ inline Vec3 mat3_mul_vec(const float * R, const Vec3 & v)
-{
+__host__ __device__ inline Vec3 mat3_mul_vec(const float *R, const Vec3 &v) {
   Vec3 out{};
   out.x = R[0] * v.x + R[3] * v.y + R[6] * v.z;
   out.y = R[1] * v.x + R[4] * v.y + R[7] * v.z;
@@ -41,24 +37,22 @@ __host__ __device__ inline Vec3 mat3_mul_vec(const float * R, const Vec3 & v)
   return out;
 }
 
-__host__ __device__ inline void mat3_mul(const float * A, const float * B, float * C)
-{
+__host__ __device__ inline void mat3_mul(const float *A, const float *B,
+                                         float *C) {
   for (int c = 0; c < 3; ++c) {
     for (int r = 0; r < 3; ++r) {
-      C[c * 3 + r] = A[0 * 3 + r] * B[c * 3 + 0]
-        + A[1 * 3 + r] * B[c * 3 + 1]
-        + A[2 * 3 + r] * B[c * 3 + 2];
+      C[c * 3 + r] = A[0 * 3 + r] * B[c * 3 + 0] + A[1 * 3 + r] * B[c * 3 + 1] +
+                     A[2 * 3 + r] * B[c * 3 + 2];
     }
   }
 }
 
-__host__ __device__ inline float clamp_abs(float x, float min_abs)
-{
+__host__ __device__ inline float clamp_abs(float x, float min_abs) {
   return (fabsf(x) < min_abs) ? ((x >= 0.0F) ? min_abs : -min_abs) : x;
 }
 
-__host__ __device__ inline void exp_so3(float wx, float wy, float wz, float * R)
-{
+__host__ __device__ inline void exp_so3(float wx, float wy, float wz,
+                                        float *R) {
   const float theta = sqrtf(wx * wx + wy * wy + wz * wz);
   const float eps = 1.0e-6F;
   const float ax = (theta > eps) ? wx / theta : wx;
@@ -79,8 +73,7 @@ __host__ __device__ inline void exp_so3(float wx, float wy, float wz, float * R)
   R[8] = c + az * az * one_c;
 }
 
-void solve_6x6(float * A, float * b)
-{
+void solve_6x6(float *A, float *b) {
   float aug[6][7];
   for (int r = 0; r < 6; ++r) {
     for (int c = 0; c < 6; ++c) {
@@ -125,13 +118,8 @@ void solve_6x6(float * A, float * b)
   }
 }
 
-void generate_problem(
-  std::vector<float> & src,
-  std::vector<float> & tgt,
-  std::vector<float> & t_true,
-  int batch,
-  int points)
-{
+void generate_problem(std::vector<float> &src, std::vector<float> &tgt,
+                      std::vector<float> &t_true, int batch, int points) {
   std::mt19937 rng(42);
   std::uniform_real_distribution<float> u(-1.0F, 1.0F);
   std::normal_distribution<float> noise(0.0F, 0.002F);
@@ -172,36 +160,28 @@ void generate_problem(
   }
 }
 
-void compute_normals_cpu(
-  const std::vector<float> & src,
-  const std::vector<float> & tgt,
-  const std::vector<float> & R_batch,
-  const std::vector<float> & t_batch,
-  std::vector<float> & H_batch,
-  std::vector<float> & g_batch,
-  int batch,
-  int points)
-{
+void compute_normals_cpu(const std::vector<float> &src,
+                         const std::vector<float> &tgt,
+                         const std::vector<float> &R_batch,
+                         const std::vector<float> &t_batch,
+                         std::vector<float> &H_batch,
+                         std::vector<float> &g_batch, int batch, int points) {
   std::fill(H_batch.begin(), H_batch.end(), 0.0F);
   std::fill(g_batch.begin(), g_batch.end(), 0.0F);
 
   for (int b = 0; b < batch; ++b) {
-    const float * R = &R_batch[static_cast<std::size_t>(b) * 9];
+    const float *R = &R_batch[static_cast<std::size_t>(b) * 9];
     const float tx = t_batch[static_cast<std::size_t>(b) * 3];
     const float ty = t_batch[static_cast<std::size_t>(b) * 3 + 1];
     const float tz = t_batch[static_cast<std::size_t>(b) * 3 + 2];
-    float * H = &H_batch[static_cast<std::size_t>(b) * 36];
-    float * g = &g_batch[static_cast<std::size_t>(b) * 6];
+    float *H = &H_batch[static_cast<std::size_t>(b) * 36];
+    float *g = &g_batch[static_cast<std::size_t>(b) * 6];
 
     for (int p = 0; p < points; ++p) {
-      const Vec3 s{
-        src[idx_pt(b, p, 0, points)],
-        src[idx_pt(b, p, 1, points)],
-        src[idx_pt(b, p, 2, points)]};
-      const Vec3 q{
-        tgt[idx_pt(b, p, 0, points)],
-        tgt[idx_pt(b, p, 1, points)],
-        tgt[idx_pt(b, p, 2, points)]};
+      const Vec3 s{src[idx_pt(b, p, 0, points)], src[idx_pt(b, p, 1, points)],
+                   src[idx_pt(b, p, 2, points)]};
+      const Vec3 q{tgt[idx_pt(b, p, 0, points)], tgt[idx_pt(b, p, 1, points)],
+                   tgt[idx_pt(b, p, 2, points)]};
 
       Vec3 rp = mat3_mul_vec(R, s);
       rp.x += tx;
@@ -209,11 +189,9 @@ void compute_normals_cpu(
       rp.z += tz;
       const Vec3 r{rp.x - q.x, rp.y - q.y, rp.z - q.z};
 
-      const float J[3][6] = {
-        {1.0F, 0.0F, 0.0F, 0.0F, rp.z - tz, -(rp.y - ty)},
-        {0.0F, 1.0F, 0.0F, -(rp.z - tz), 0.0F, rp.x - tx},
-        {0.0F, 0.0F, 1.0F, rp.y - ty, -(rp.x - tx), 0.0F}
-      };
+      const float J[3][6] = {{1.0F, 0.0F, 0.0F, 0.0F, rp.z - tz, -(rp.y - ty)},
+                             {0.0F, 1.0F, 0.0F, -(rp.z - tz), 0.0F, rp.x - tx},
+                             {0.0F, 0.0F, 1.0F, rp.y - ty, -(rp.x - tx), 0.0F}};
       const float rv[3] = {r.x, r.y, r.z};
 
       for (int i = 0; i < 6; ++i) {
@@ -234,13 +212,12 @@ void compute_normals_cpu(
   }
 }
 
-__global__ void zero_pose_kernel(float * R_batch, float * t_batch, int batch)
-{
+__global__ void zero_pose_kernel(float *R_batch, float *t_batch, int batch) {
   const int b = blockIdx.x * blockDim.x + threadIdx.x;
   if (b >= batch) {
     return;
   }
-  float * R = &R_batch[static_cast<std::size_t>(b) * 9];
+  float *R = &R_batch[static_cast<std::size_t>(b) * 9];
   for (int i = 0; i < 9; ++i) {
     R[i] = 0.0F;
   }
@@ -252,18 +229,13 @@ __global__ void zero_pose_kernel(float * R_batch, float * t_batch, int batch)
   t_batch[static_cast<std::size_t>(b) * 3 + 2] = 0.0F;
 }
 
-__global__ void build_normal_equations_kernel(
-  const float * src,
-  const float * tgt,
-  const float * R_batch,
-  const float * t_batch,
-  float * H_batch,
-  float * g_batch,
-  int points)
-{
+__global__ void
+build_normal_equations_kernel(const float *src, const float *tgt,
+                              const float *R_batch, const float *t_batch,
+                              float *H_batch, float *g_batch, int points) {
   const int b = blockIdx.x;
   const int tid = threadIdx.x;
-  constexpr int kTerms = 42;  // 36 H + 6 g
+  constexpr int kTerms = 42; // 36 H + 6 g
   __shared__ float sdata[128 * kTerms];
 
   float local[kTerms];
@@ -271,20 +243,16 @@ __global__ void build_normal_equations_kernel(
     local[i] = 0.0F;
   }
 
-  const float * R = &R_batch[static_cast<std::size_t>(b) * 9];
+  const float *R = &R_batch[static_cast<std::size_t>(b) * 9];
   const float tx = t_batch[static_cast<std::size_t>(b) * 3];
   const float ty = t_batch[static_cast<std::size_t>(b) * 3 + 1];
   const float tz = t_batch[static_cast<std::size_t>(b) * 3 + 2];
 
   for (int p = tid; p < points; p += blockDim.x) {
-    const Vec3 s{
-      src[idx_pt(b, p, 0, points)],
-      src[idx_pt(b, p, 1, points)],
-      src[idx_pt(b, p, 2, points)]};
-    const Vec3 q{
-      tgt[idx_pt(b, p, 0, points)],
-      tgt[idx_pt(b, p, 1, points)],
-      tgt[idx_pt(b, p, 2, points)]};
+    const Vec3 s{src[idx_pt(b, p, 0, points)], src[idx_pt(b, p, 1, points)],
+                 src[idx_pt(b, p, 2, points)]};
+    const Vec3 q{tgt[idx_pt(b, p, 0, points)], tgt[idx_pt(b, p, 1, points)],
+                 tgt[idx_pt(b, p, 2, points)]};
 
     Vec3 rp = mat3_mul_vec(R, s);
     rp.x += tx;
@@ -292,11 +260,9 @@ __global__ void build_normal_equations_kernel(
     rp.z += tz;
     const Vec3 r{rp.x - q.x, rp.y - q.y, rp.z - q.z};
 
-    const float J[3][6] = {
-      {1.0F, 0.0F, 0.0F, 0.0F, rp.z - tz, -(rp.y - ty)},
-      {0.0F, 1.0F, 0.0F, -(rp.z - tz), 0.0F, rp.x - tx},
-      {0.0F, 0.0F, 1.0F, rp.y - ty, -(rp.x - tx), 0.0F}
-    };
+    const float J[3][6] = {{1.0F, 0.0F, 0.0F, 0.0F, rp.z - tz, -(rp.y - ty)},
+                           {0.0F, 1.0F, 0.0F, -(rp.z - tz), 0.0F, rp.x - tx},
+                           {0.0F, 0.0F, 1.0F, rp.y - ty, -(rp.x - tx), 0.0F}};
     const float rv[3] = {r.x, r.y, r.z};
 
     for (int i = 0; i < 6; ++i) {
@@ -315,7 +281,7 @@ __global__ void build_normal_equations_kernel(
     }
   }
 
-  float * sb = &sdata[tid * kTerms];
+  float *sb = &sdata[tid * kTerms];
   for (int i = 0; i < kTerms; ++i) {
     sb[i] = local[i];
   }
@@ -323,8 +289,8 @@ __global__ void build_normal_equations_kernel(
 
   for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
     if (tid < stride) {
-      float * a = &sdata[tid * kTerms];
-      float * bptr = &sdata[(tid + stride) * kTerms];
+      float *a = &sdata[tid * kTerms];
+      float *bptr = &sdata[(tid + stride) * kTerms];
       for (int i = 0; i < kTerms; ++i) {
         a[i] += bptr[i];
       }
@@ -333,9 +299,9 @@ __global__ void build_normal_equations_kernel(
   }
 
   if (tid == 0) {
-    float * H = &H_batch[static_cast<std::size_t>(b) * 36];
-    float * g = &g_batch[static_cast<std::size_t>(b) * 6];
-    const float * out = &sdata[0];
+    float *H = &H_batch[static_cast<std::size_t>(b) * 36];
+    float *g = &g_batch[static_cast<std::size_t>(b) * 6];
+    const float *out = &sdata[0];
     for (int i = 0; i < 36; ++i) {
       H[i] = out[i];
     }
@@ -345,8 +311,7 @@ __global__ void build_normal_equations_kernel(
   }
 }
 
-__device__ inline void solve_6x6_device(float * A, float * b)
-{
+__device__ inline void solve_6x6_device(float *A, float *b) {
   float aug[6][7];
   for (int r = 0; r < 6; ++r) {
     for (int c = 0; c < 6; ++c) {
@@ -392,16 +357,16 @@ __device__ inline void solve_6x6_device(float * A, float * b)
   }
 }
 
-__global__ void solve_and_update_kernel(
-  float * H_batch, float * g_batch, float * R_batch, float * t_batch, float damping, int batch)
-{
+__global__ void solve_and_update_kernel(float *H_batch, float *g_batch,
+                                        float *R_batch, float *t_batch,
+                                        float damping, int batch) {
   const int b = blockIdx.x * blockDim.x + threadIdx.x;
   if (b >= batch) {
     return;
   }
 
-  float * H = &H_batch[static_cast<std::size_t>(b) * 36];
-  float * g = &g_batch[static_cast<std::size_t>(b) * 6];
+  float *H = &H_batch[static_cast<std::size_t>(b) * 36];
+  float *g = &g_batch[static_cast<std::size_t>(b) * 6];
   for (int i = 0; i < 6; ++i) {
     H[i * 6 + i] += damping;
     g[i] = -g[i];
@@ -415,7 +380,7 @@ __global__ void solve_and_update_kernel(
   float dR[9];
   exp_so3(g[3], g[4], g[5], dR);
   float Rold[9];
-  float * R = &R_batch[static_cast<std::size_t>(b) * 9];
+  float *R = &R_batch[static_cast<std::size_t>(b) * 9];
   for (int i = 0; i < 9; ++i) {
     Rold[i] = R[i];
   }
@@ -423,14 +388,11 @@ __global__ void solve_and_update_kernel(
 }
 
 #if GCLP_HAVE_CERES
-struct CeresPointResidual
-{
-  CeresPointResidual(const Vec3 & s, const Vec3 & q)
-  : s_(s), q_(q) {}
+struct CeresPointResidual {
+  CeresPointResidual(const Vec3 &s, const Vec3 &q) : s_(s), q_(q) {}
 
-  template<typename T>
-  bool operator()(const T * const pose, T * residual) const
-  {
+  template <typename T>
+  bool operator()(const T *const pose, T *residual) const {
     // pose = [tx, ty, tz, rx, ry, rz] (angle-axis rotation)
     const T p[3] = {T(s_.x), T(s_.y), T(s_.z)};
     T rp[3];
@@ -446,13 +408,12 @@ struct CeresPointResidual
 };
 #endif
 
-}  // namespace
+} // namespace
 
-int main()
-{
+int main() {
   try {
     constexpr int batch = 256;
-    constexpr int points = 256;
+    constexpr int points = 5000;
     constexpr int iterations = 10;
     constexpr float damping = 1.0e-3F;
 
@@ -474,10 +435,11 @@ int main()
 
     gclp::ScopedWallTimer cpu_custom_timer;
     for (int it = 0; it < iterations; ++it) {
-      compute_normals_cpu(h_src, h_tgt, h_R_cpu, h_t_cpu, h_H, h_g, batch, points);
+      compute_normals_cpu(h_src, h_tgt, h_R_cpu, h_t_cpu, h_H, h_g, batch,
+                          points);
       for (int b = 0; b < batch; ++b) {
-        float * Hb = &h_H[static_cast<std::size_t>(b) * 36];
-        float * gb = &h_g[static_cast<std::size_t>(b) * 6];
+        float *Hb = &h_H[static_cast<std::size_t>(b) * 36];
+        float *gb = &h_g[static_cast<std::size_t>(b) * 6];
         for (int i = 0; i < 6; ++i) {
           Hb[i * 6 + i] += damping;
           gb[i] = -gb[i];
@@ -489,7 +451,7 @@ int main()
         float dR[9];
         exp_so3(gb[3], gb[4], gb[5], dR);
         float Rold[9];
-        float * Rb = &h_R_cpu[static_cast<std::size_t>(b) * 9];
+        float *Rb = &h_R_cpu[static_cast<std::size_t>(b) * 9];
         for (int i = 0; i < 9; ++i) {
           Rold[i] = Rb[i];
         }
@@ -499,22 +461,38 @@ int main()
     const double cpu_custom_ms = cpu_custom_timer.elapsed_ms();
 
     // Custom GPU Gauss-Newton
-    float * d_src = nullptr;
-    float * d_tgt = nullptr;
-    float * d_R = nullptr;
-    float * d_t = nullptr;
-    float * d_H = nullptr;
-    float * d_g = nullptr;
+    float *d_src = nullptr;
+    float *d_tgt = nullptr;
+    float *d_R = nullptr;
+    float *d_t = nullptr;
+    float *d_H = nullptr;
+    float *d_g = nullptr;
 
-    gclp::throw_on_cuda_error(cudaMalloc(&d_src, h_src.size() * sizeof(float)), "cudaMalloc d_src");
-    gclp::throw_on_cuda_error(cudaMalloc(&d_tgt, h_tgt.size() * sizeof(float)), "cudaMalloc d_tgt");
-    gclp::throw_on_cuda_error(cudaMalloc(&d_R, static_cast<std::size_t>(batch * 9) * sizeof(float)), "cudaMalloc d_R");
-    gclp::throw_on_cuda_error(cudaMalloc(&d_t, static_cast<std::size_t>(batch * 3) * sizeof(float)), "cudaMalloc d_t");
-    gclp::throw_on_cuda_error(cudaMalloc(&d_H, static_cast<std::size_t>(batch * 36) * sizeof(float)), "cudaMalloc d_H");
-    gclp::throw_on_cuda_error(cudaMalloc(&d_g, static_cast<std::size_t>(batch * 6) * sizeof(float)), "cudaMalloc d_g");
+    gclp::throw_on_cuda_error(cudaMalloc(&d_src, h_src.size() * sizeof(float)),
+                              "cudaMalloc d_src");
+    gclp::throw_on_cuda_error(cudaMalloc(&d_tgt, h_tgt.size() * sizeof(float)),
+                              "cudaMalloc d_tgt");
+    gclp::throw_on_cuda_error(
+        cudaMalloc(&d_R, static_cast<std::size_t>(batch * 9) * sizeof(float)),
+        "cudaMalloc d_R");
+    gclp::throw_on_cuda_error(
+        cudaMalloc(&d_t, static_cast<std::size_t>(batch * 3) * sizeof(float)),
+        "cudaMalloc d_t");
+    gclp::throw_on_cuda_error(
+        cudaMalloc(&d_H, static_cast<std::size_t>(batch * 36) * sizeof(float)),
+        "cudaMalloc d_H");
+    gclp::throw_on_cuda_error(
+        cudaMalloc(&d_g, static_cast<std::size_t>(batch * 6) * sizeof(float)),
+        "cudaMalloc d_g");
 
-    gclp::throw_on_cuda_error(cudaMemcpy(d_src, h_src.data(), h_src.size() * sizeof(float), cudaMemcpyHostToDevice), "H2D src");
-    gclp::throw_on_cuda_error(cudaMemcpy(d_tgt, h_tgt.data(), h_tgt.size() * sizeof(float), cudaMemcpyHostToDevice), "H2D tgt");
+    gclp::throw_on_cuda_error(cudaMemcpy(d_src, h_src.data(),
+                                         h_src.size() * sizeof(float),
+                                         cudaMemcpyHostToDevice),
+                              "H2D src");
+    gclp::throw_on_cuda_error(cudaMemcpy(d_tgt, h_tgt.data(),
+                                         h_tgt.size() * sizeof(float),
+                                         cudaMemcpyHostToDevice),
+                              "H2D tgt");
 
     constexpr int threads_pose = 256;
     const int blocks_pose = (batch + threads_pose - 1) / threads_pose;
@@ -523,25 +501,39 @@ int main()
 
     cudaEvent_t gpu_start = nullptr;
     cudaEvent_t gpu_stop = nullptr;
-    gclp::throw_on_cuda_error(cudaEventCreate(&gpu_start), "cudaEventCreate start");
-    gclp::throw_on_cuda_error(cudaEventCreate(&gpu_stop), "cudaEventCreate stop");
+    gclp::throw_on_cuda_error(cudaEventCreate(&gpu_start),
+                              "cudaEventCreate start");
+    gclp::throw_on_cuda_error(cudaEventCreate(&gpu_stop),
+                              "cudaEventCreate stop");
 
     constexpr int threads_reduce = 128;
-    gclp::throw_on_cuda_error(cudaEventRecord(gpu_start), "cudaEventRecord start");
+    gclp::throw_on_cuda_error(cudaEventRecord(gpu_start),
+                              "cudaEventRecord start");
     for (int it = 0; it < iterations; ++it) {
-      build_normal_equations_kernel<<<batch, threads_reduce>>>(d_src, d_tgt, d_R, d_t, d_H, d_g, points);
-      gclp::throw_on_cuda_error(cudaGetLastError(), "build_normal_equations_kernel launch");
-      solve_and_update_kernel<<<blocks_pose, threads_pose>>>(d_H, d_g, d_R, d_t, damping, batch);
-      gclp::throw_on_cuda_error(cudaGetLastError(), "solve_and_update_kernel launch");
+      build_normal_equations_kernel<<<batch, threads_reduce>>>(
+          d_src, d_tgt, d_R, d_t, d_H, d_g, points);
+      gclp::throw_on_cuda_error(cudaGetLastError(),
+                                "build_normal_equations_kernel launch");
+      solve_and_update_kernel<<<blocks_pose, threads_pose>>>(d_H, d_g, d_R, d_t,
+                                                             damping, batch);
+      gclp::throw_on_cuda_error(cudaGetLastError(),
+                                "solve_and_update_kernel launch");
     }
-    gclp::throw_on_cuda_error(cudaEventRecord(gpu_stop), "cudaEventRecord stop");
-    gclp::throw_on_cuda_error(cudaEventSynchronize(gpu_stop), "cudaEventSynchronize stop");
+    gclp::throw_on_cuda_error(cudaEventRecord(gpu_stop),
+                              "cudaEventRecord stop");
+    gclp::throw_on_cuda_error(cudaEventSynchronize(gpu_stop),
+                              "cudaEventSynchronize stop");
 
     float gpu_custom_ms = 0.0F;
-    gclp::throw_on_cuda_error(cudaEventElapsedTime(&gpu_custom_ms, gpu_start, gpu_stop), "cudaEventElapsedTime");
+    gclp::throw_on_cuda_error(
+        cudaEventElapsedTime(&gpu_custom_ms, gpu_start, gpu_stop),
+        "cudaEventElapsedTime");
 
     std::vector<float> h_t_gpu(static_cast<std::size_t>(batch * 3));
-    gclp::throw_on_cuda_error(cudaMemcpy(h_t_gpu.data(), d_t, h_t_gpu.size() * sizeof(float), cudaMemcpyDeviceToHost), "D2H t");
+    gclp::throw_on_cuda_error(cudaMemcpy(h_t_gpu.data(), d_t,
+                                         h_t_gpu.size() * sizeof(float),
+                                         cudaMemcpyDeviceToHost),
+                              "D2H t");
 
     // Ceres CPU (if available)
     double ceres_cpu_ms = -1.0;
@@ -553,16 +545,13 @@ int main()
         double pose[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
         ceres::Problem problem;
         for (int p = 0; p < points; ++p) {
-          Vec3 s{
-            h_src[idx_pt(b, p, 0, points)],
-            h_src[idx_pt(b, p, 1, points)],
-            h_src[idx_pt(b, p, 2, points)]};
-          Vec3 q{
-            h_tgt[idx_pt(b, p, 0, points)],
-            h_tgt[idx_pt(b, p, 1, points)],
-            h_tgt[idx_pt(b, p, 2, points)]};
-          ceres::CostFunction * cost =
-            new ceres::AutoDiffCostFunction<CeresPointResidual, 3, 6>(new CeresPointResidual(s, q));
+          Vec3 s{h_src[idx_pt(b, p, 0, points)], h_src[idx_pt(b, p, 1, points)],
+                 h_src[idx_pt(b, p, 2, points)]};
+          Vec3 q{h_tgt[idx_pt(b, p, 0, points)], h_tgt[idx_pt(b, p, 1, points)],
+                 h_tgt[idx_pt(b, p, 2, points)]};
+          ceres::CostFunction *cost =
+              new ceres::AutoDiffCostFunction<CeresPointResidual, 3, 6>(
+                  new CeresPointResidual(s, q));
           problem.AddResidualBlock(cost, nullptr, pose);
         }
 
@@ -574,20 +563,26 @@ int main()
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
 
-        h_t_ceres[static_cast<std::size_t>(b) * 3] = static_cast<float>(pose[0]);
-        h_t_ceres[static_cast<std::size_t>(b) * 3 + 1] = static_cast<float>(pose[1]);
-        h_t_ceres[static_cast<std::size_t>(b) * 3 + 2] = static_cast<float>(pose[2]);
+        h_t_ceres[static_cast<std::size_t>(b) * 3] =
+            static_cast<float>(pose[0]);
+        h_t_ceres[static_cast<std::size_t>(b) * 3 + 1] =
+            static_cast<float>(pose[1]);
+        h_t_ceres[static_cast<std::size_t>(b) * 3 + 2] =
+            static_cast<float>(pose[2]);
       }
       ceres_cpu_ms = ceres_timer.elapsed_ms();
     }
 #endif
 
-    auto mean_t_err = [&](const std::vector<float> & t_est) {
+    auto mean_t_err = [&](const std::vector<float> &t_est) {
       double mean = 0.0;
       for (int b = 0; b < batch; ++b) {
-        const float ex = t_est[static_cast<std::size_t>(b) * 3] - h_t_true[static_cast<std::size_t>(b) * 3];
-        const float ey = t_est[static_cast<std::size_t>(b) * 3 + 1] - h_t_true[static_cast<std::size_t>(b) * 3 + 1];
-        const float ez = t_est[static_cast<std::size_t>(b) * 3 + 2] - h_t_true[static_cast<std::size_t>(b) * 3 + 2];
+        const float ex = t_est[static_cast<std::size_t>(b) * 3] -
+                         h_t_true[static_cast<std::size_t>(b) * 3];
+        const float ey = t_est[static_cast<std::size_t>(b) * 3 + 1] -
+                         h_t_true[static_cast<std::size_t>(b) * 3 + 1];
+        const float ez = t_est[static_cast<std::size_t>(b) * 3 + 2] -
+                         h_t_true[static_cast<std::size_t>(b) * 3 + 2];
         mean += std::sqrt(static_cast<double>(ex * ex + ey * ey + ez * ez));
       }
       return mean / static_cast<double>(batch);
@@ -597,11 +592,15 @@ int main()
     const double err_gpu_custom = mean_t_err(h_t_gpu);
 
     std::cout << "Lesson 16: ICP pose estimation benchmark (same problem)\n";
-    std::cout << "Solvers: Ceres CPU, custom CPU Gauss-Newton, custom GPU Gauss-Newton\n";
-    std::cout << "Batch=" << batch << ", points=" << points << ", iters=" << iterations << "\n";
+    std::cout << "Solvers: Ceres CPU, custom CPU Gauss-Newton, custom GPU "
+                 "Gauss-Newton\n";
+    std::cout << "Batch=" << batch << ", points=" << points
+              << ", iters=" << iterations << "\n";
     std::cout << "Custom CPU time (ms): " << cpu_custom_ms << "\n";
     std::cout << "Custom GPU time (ms): " << gpu_custom_ms << "\n";
-    std::cout << "Custom CPU/GPU speedup: " << (cpu_custom_ms / std::max<double>(gpu_custom_ms, 1.0e-9)) << "x\n";
+    std::cout << "Custom CPU/GPU speedup: "
+              << (cpu_custom_ms / std::max<double>(gpu_custom_ms, 1.0e-9))
+              << "x\n";
     std::cout << "Mean translation error (custom CPU / custom GPU): "
               << err_cpu_custom << " / " << err_gpu_custom << "\n";
 #if GCLP_HAVE_CERES
@@ -609,9 +608,11 @@ int main()
     std::cout << "Ceres CPU time (ms): " << ceres_cpu_ms << "\n";
     std::cout << "Mean translation error (Ceres): " << err_ceres << "\n";
     std::cout << "Speedup custom GPU vs Ceres CPU: "
-              << (ceres_cpu_ms / std::max<double>(gpu_custom_ms, 1.0e-9)) << "x\n";
+              << (ceres_cpu_ms / std::max<double>(gpu_custom_ms, 1.0e-9))
+              << "x\n";
 #else
-    std::cout << "Ceres CPU: unavailable at build time (install Ceres and rebuild to enable).\n";
+    std::cout << "Ceres CPU: unavailable at build time (install Ceres and "
+                 "rebuild to enable).\n";
 #endif
 
     cudaEventDestroy(gpu_start);
@@ -623,7 +624,7 @@ int main()
     cudaFree(d_H);
     cudaFree(d_g);
     return 0;
-  } catch (const std::exception & e) {
+  } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << "\n";
     return 1;
   }
